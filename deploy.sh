@@ -15,9 +15,6 @@ output = json
 region = ${AWS_REGION}
 EOL
 
-echo $RSA_KEY > ~/.docker/rsakey.pem
-chmod 400 ~/.docker/rsakey.pem
-
 aws cloudformation create-stack --stack-name rookstack --template-url https://editions-us-east-1.s3.amazonaws.com/aws/stable/Docker.tmpl --region eu-west-1 --parameters ParameterKey=KeyName,ParameterValue=rsakey ParameterKey=InstanceType,ParameterValue=t2.micro ParameterKey=ManagerInstanceType,ParameterValue=t2.micro ParameterKey=ClusterSize,ParameterValue=3 --capabilities CAPABILITY_IAM^C 
 
 MANAGER_INSTANCE=`aws ec2 describe-instances --query 'Reservations[0].Instances[0].{ID:InstanceId}' | grep ID | awk -F ":" '{print $2}' | sed 's/[",]//g'`
@@ -26,4 +23,4 @@ IP=`aws ec2 describe-instances --instance-ids $MANAGER_INSTANCE | grep PublicIpA
 ssh - .~/.docker/rsakey.pem -NL localhost:2374:/var/run/docker.sock docker@$IP
 set DOCKER_HOST=localhost:2374
 
-docker stack deploy 
+docker info
