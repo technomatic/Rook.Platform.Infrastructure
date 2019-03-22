@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-pip install awscli
+sudo pip install awscli
 
 mkdir -p ~/.aws
 
