@@ -1,0 +1,84 @@
+version: '3.4'
+
+services:
+  rabbit:
+    image: registry-my-local:5000/rabbitbase
+    networks:
+      - ${ENVIRONMENT}_net
+      - ucp_hrm
+    hostname: "rabbit-node-{{.Task.Slot}}"
+    ports:
+      - "5673:5672"
+    volumes:
+      - rabbit_vol:/var/lib/rabbitmq/mnesia
+    environment:
+      - AUTOCLUSTER_TYPE=consul 
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+      - CONSUL_SVC=rabbitmq
+      - CONSUL_SVC_ADDR_AUTO=true
+      - AUTOCLUSTER_CLEANUP=true
+      - CLEANUP_WARN_ONLY=false
+      - RABBITMQ_ERLANG_COOKIE=secrect 
+    deploy:
+      labels:
+        - com.docker.ucp.mesh.http.80=external_route=http://queue.${ENVIRONMENT}.${DOMAIN},internal_port=15672
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints: [node.labels.platform == linux] 
+      resources:
+        limits:
+          cpus: '0.75'
+          memory: 2048M
+        reservations:
+          cpus: '0.25'
+          memory: 256M 
+
+  consul:
+    image: progrium/consul
+    networks:
+      - ${ENVIRONMENT}_net
+    ports:
+      - "8500:8500"
+    environment:
+      - "CONSUL_BIND_INTERFACE=eth0"
+      - "CONSUL_LOCAL_CONFIG={'skip_leave_on_interrupt': true}"
+    entrypoint:
+      - consul
+      - agent
+      - -server
+      - -ui-dir=/ui
+      - -client=0.0.0.0
+      - -bootstrap-expect=1
+      - -retry-join=consul
+      - -data-dir=/agent-data 
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints: [node.labels.platform == linux] 
+      resources:
+        limits:
+        cpus: '0.50'
+        memory: 1024M
+      reservations:
+        cpus: '0.25'
+        memory: 128M 
+
+networks:
+  ${ENVIRONMENT}_net:
+    external: true
+  ucp-hrm:
+    external: true 
+
+volumes:
+  rabbit_vol:
+    name: smbhost/share/rabbit_vol-{{.Task.Slot}}
+    driver: cifs
+    driver_opts:
+      username: myusername
+      password: password
+      domain: mms
+      security: security
+      fileMode: 0777
