@@ -3,7 +3,6 @@ dist: xenial
 before-script:
     - openssl aes-256-cbc -K $encrypted_97c782117613_key -iv $encrypted_97c782117613_iv -in rsakey.pem.enc -out rsakey.pem -d
     - chmod 400 rsakey.pem
-    - pip install awscli
 script:
     - chmod +x deploy.sh
     - ./deploy.sh
