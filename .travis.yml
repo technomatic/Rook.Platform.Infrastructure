@@ -3,7 +3,6 @@ dist: xenial
 before-script:
     - openssl aes-256-cbc -K $encrypted_97c782117613_key -iv $encrypted_97c782117613_iv -in rsakey.pem.enc -out rsakey.pem -d
     - chmod 400 rsakey.pem
-    - sudo pip install awscli
     - mkdir -p ~/.aws
     - cat > ~/.aws/credentials << EOL
     - [default]
@@ -16,6 +15,7 @@ before-script:
     - region = ${AWS_REGION}
     - EOL
 script:
+    - pip install awscli
     - aws cloudformation create-stack --stack-name rookstack --template-url https://editions-us-east-1.s3.amazonaws.com/aws/stable/Docker.tmpl --region eu-west-1 --parameters ParameterKey=KeyName,ParameterValue=rsakey ParameterKey=InstanceType,ParameterValue=t2.micro ParameterKey=ManagerInstanceType,ParameterValue=t2.micro ParameterKey=ClusterSize,ParameterValue=3 --capabilities CAPABILITY_IAM 
     - travis_wait 30 aws cloudformation wait stack-create-complete --stack-name rookstack
     - MANAGER_INSTANCE=`aws ec2 describe-instances --query 'Reservations[0].Instances[0].{ID:InstanceId}' | grep ID | awk -F ":" '{print $2}' | sed 's/[",]//g'`
