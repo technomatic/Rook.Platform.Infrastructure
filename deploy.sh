@@ -54,7 +54,7 @@ MANAGER_INSTANCE=`aws ec2 describe-instances --query 'Reservations[0].Instances[
 echo $MANAGER_INSTANCE
 IP="$(aws ec2 describe-instances --instance-ids ${MANAGER_INSTANCE} | jq -r '.Reservations[0].Instances[0].PublicIpAddress')"
 echo $IP
-ssh - ./rsakey.pem -NL localhost:2374:/var/run/docker.sock docker@'{print $IP}'
+ssh - ./rsakey.pem -NL localhost:2374:/var/run/docker.sock docker@$IP
 set DOCKER_HOST=localhost:2374
 
 docker info
