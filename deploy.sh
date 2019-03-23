@@ -52,7 +52,7 @@ while [[ 1 ]]; do
 done
 MANAGER_INSTANCE=`aws ec2 describe-instances --query 'Reservations[0].Instances[0].{ID:InstanceId}' | grep ID | awk -F ":" '{print $2}' | sed 's/[",]//g'`
 echo $MANAGER_INSTANCE
-IP="$(aws ec2 describe-instances --instance-ids ${MANAGER_INSTANCE} | jq -r '.Reservations[0].Instances[0].PublicIpAddress')"
+IP=`aws ec2 describe-instances --instance-ids $MANAGER_INSTANCE | grep PublicIpAddress | awk -F ":" '{print $2}' | sed 's/[",]//g'`
 echo $IP
 ssh - ./rsakey.pem -NL localhost:2374:/var/run/docker.sock docker@${IP}
 set DOCKER_HOST=localhost:2374
