@@ -6,4 +6,4 @@ before-script:
     - 
 script:
     - chmod +x deploy.sh
-    - travis_wait ./deploy.sh
+    - ./deploy.sh
