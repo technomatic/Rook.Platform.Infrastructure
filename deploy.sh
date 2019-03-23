@@ -47,14 +47,14 @@ while [[ 1 ]]; do
         break
     fi
 
-    # Sleep for 5 seconds, if stack creation in progress
+    # Sleep for 60 seconds, if stack creation in progress
     sleep 60
 done
 MANAGER_INSTANCE=`aws ec2 describe-instances --query 'Reservations[0].Instances[0].{ID:InstanceId}' | grep ID | awk -F ":" '{print $2}' | sed 's/[",]//g'`
 echo $MANAGER_INSTANCE
 IP="$(aws ec2 describe-instances --instance-ids ${MANAGER_INSTANCE} | jq -r '.Reservations[0].Instances[0].PublicIpAddress')"
 echo $IP
-ssh - ./rsakey.pem -NL localhost:2374:/var/run/docker.sock docker@$IP
+ssh - ./rsakey.pem -NL localhost:2374:/var/run/docker.sock docker@${IP}
 set DOCKER_HOST=localhost:2374
 
 docker info
