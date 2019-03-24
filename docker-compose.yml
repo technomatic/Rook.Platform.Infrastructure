@@ -2,10 +2,9 @@ version: '3.4'
 
 services:
   rabbit:
-    image: registry-my-local:5000/rabbitbase
+    image: gavinmroy/alpine-rabbitmq-autocluster
     networks:
       - ${ENVIRONMENT}_net
-      - ucp_hrm
     hostname: "rabbit-node-{{.Task.Slot}}"
     ports:
       - "5673:5672"
@@ -21,8 +20,6 @@ services:
       - CLEANUP_WARN_ONLY=false
       - RABBITMQ_ERLANG_COOKIE=secrect 
     deploy:
-      labels:
-        - com.docker.ucp.mesh.http.80=external_route=http://queue.${ENVIRONMENT}.${DOMAIN},internal_port=15672
       mode: replicated
       replicas: 1
       placement:
@@ -69,8 +66,6 @@ services:
 networks:
   ${ENVIRONMENT}_net:
     external: true
-  ucp-hrm:
-    external: true 
 
 volumes:
   rabbit_vol:
