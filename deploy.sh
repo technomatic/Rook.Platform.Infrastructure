@@ -58,6 +58,7 @@ echo $MANAGER_INSTANCE
 #IP=`aws ec2 describe-instances --instance-ids $MANAGER_INSTANCE | grep PublicIpAddress | awk -F ":" '{print $2}' | sed 's/[",]//g'`
 IP=`aws ec2 describe-instances --query "Reservations[0].Instances[0].PublicIpAddress" --output=text`
 echo $IP
+ssh-keyscan $IP >> ~/.ssh/known_hosts
 echo ssh -i rsakey.pem -NL localhost:2374:/var/run/docker.sock docker@$IP
 ssh -i rsakey.pem -NL localhost:2374:/var/run/docker.sock docker@$IP
 set DOCKER_HOST=localhost:2374
