@@ -52,10 +52,9 @@ while [[ 1 ]]; do
     sleep 60
 done
 IP=`aws ec2 describe-instances --filter "Name=tag:Name,Values=rookstack-Manager"  --query 'Reservations[].Instances[].{IP:PublicIpAddress}' --output text | head -n1`
-echo $IP
+echo Manager IP Address: $IP
 ssh-keyscan $IP >> ~/.ssh/known_hosts
-echo ssh -i rsakey.pem -NL localhost:2374:/var/run/docker.sock docker@$IP
-ssh -i rsakey.pem -NL localhost:2374:/var/run/docker.sock docker@$IP
+ssh -4 -i rsakey.pem -NL localhost:2374:/var/run/docker.sock docker@$IP
 set DOCKER_HOST=localhost:2374
 
 docker info
