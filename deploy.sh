@@ -54,6 +54,7 @@ done
 IP=`aws ec2 describe-instances --filter "Name=tag:swarm-node-type,Values=manager"  --query 'Reservations[].Instances[].{IP:PublicIpAddress}' --output text | grep -v None | head -n1`
 echo Manager IP Address: $IP
 ssh -oStrictHostKeyChecking=no -4 -i rsakey.pem -NL localhost:2374:/var/run/docker.sock docker@$IP & docker -H localhost:2374 info
+echo "port forwaring setup complete"
 set DOCKER_HOST=localhost:2374
-
+echo "try to run docker on the server"
 docker info
