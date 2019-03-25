@@ -51,7 +51,7 @@ while [[ 1 ]]; do
     fi
     sleep 60
 done
-IP=`aws ec2 describe-instances --filter "Name=tag:Name,Values=rookstack-Manager"  --query 'Reservations[].Instances[].{IP:PublicIpAddress}' --output text | head -n1`
+IP=`aws ec2 describe-instances --filter "Name=tag:swarm-node-type,Values=manager"  --query 'Reservations[].Instances[].{IP:PublicIpAddress}' --output text | grep -v None | head -n1`
 echo Manager IP Address: $IP
 ssh-keyscan $IP >> ~/.ssh/known_hosts
 ssh -4 -i rsakey.pem -NL localhost:2374:/var/run/docker.sock docker@$IP
