@@ -21,7 +21,7 @@ openssl aes-256-cbc -K $encrypted_97c782117613_key -iv $encrypted_97c782117613_i
 chmod 400 rsakey.pem
 
 aws cloudformation create-stack --stack-name rookstack --template-url https://editions-us-east-1.s3.amazonaws.com/aws/stable/Docker.tmpl --region eu-west-1 --parameters ParameterKey=KeyName,ParameterValue=rsakey ParameterKey=InstanceType,ParameterValue=t2.micro ParameterKey=ManagerInstanceType,ParameterValue=t2.micro ParameterKey=ClusterSize,ParameterValue=3 --capabilities CAPABILITY_IAM 
-#aws cloudformation wait stack-create-complete --stack-name rookstack
+
 
 
 stackStatus="CREATE_IN_PROGRESS"
@@ -49,14 +49,9 @@ while [[ 1 ]]; do
     elif [[ "$stackStatus" == "CREATE_COMPLETE" ]]; then
         break
     fi
-
-    # Sleep for 60 seconds, if stack creation in progress
     sleep 60
 done
-MANAGER_INSTANCE=`aws ec2 describe-instances --query 'Reservations[0].Instances[0].{ID:InstanceId}' | grep ID | awk -F ":" '{print $2}' | sed 's/[",]//g'`
-echo $MANAGER_INSTANCE
-#IP=`aws ec2 describe-instances --instance-ids $MANAGER_INSTANCE | grep PublicIpAddress | awk -F ":" '{print $2}' | sed 's/[",]//g'`
-IP=`aws ec2 describe-instances --query "Reservations[0].Instances[0].PublicIpAddress" --output=text`
+IP=`aws ec2 describe-instances --filter "Name=tag:Name,Values=rookstack-Manager"  --query 'Reservations[].Instances[].{IP:PublicIpAddress}' --output text | head -n1`
 echo $IP
 ssh-keyscan $IP >> ~/.ssh/known_hosts
 echo ssh -i rsakey.pem -NL localhost:2374:/var/run/docker.sock docker@$IP
