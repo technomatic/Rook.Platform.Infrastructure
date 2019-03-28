@@ -19,8 +19,8 @@ services:
   route53:
     image: hmalphettes/docker-route53-dyndns
     environment:
-      - "AWS_ACCESS_KEY_ID=AKIAI2BCCUZMCGR3G22A"
-      - "AWS_SECRET_ACCESS_KEY=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"
+      - "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}"
+      - "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}"
       - "PRIVATE_TOP_ZONES=dev.mab.scot"
       - "DRY_ROUTE53=true"
     volumes:
