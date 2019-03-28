@@ -22,8 +22,6 @@ chmod 400 rsakey.pem
 
 aws cloudformation create-stack --stack-name rookstack --template-url https://editions-us-east-1.s3.amazonaws.com/aws/stable/18.03.0/Docker.tmpl --region eu-west-1 --parameters ParameterKey=KeyName,ParameterValue=rsakey ParameterKey=InstanceType,ParameterValue=t2.micro ParameterKey=ManagerInstanceType,ParameterValue=t2.micro ParameterKey=ClusterSize,ParameterValue=3 --capabilities CAPABILITY_IAM 
 
-
-
 stackStatus="CREATE_IN_PROGRESS"
 
 while [[ 1 ]]; do
