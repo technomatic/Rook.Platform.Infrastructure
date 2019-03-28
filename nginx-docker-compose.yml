@@ -1,0 +1,38 @@
+version: '3.4'
+
+services:
+  nginx:
+    image: jwilder/nginx-proxy:alpine
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock
+    networks:
+      - rook_public_net
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints: [node.role==manager] 
+
+  route53:
+    image: hmalphettes/docker-route53-dyndns
+    environment:
+      - "AWS_ACCESS_KEY_ID=AKIAI2BCCUZMCGR3G22A"
+      - "AWS_SECRET_ACCESS_KEY=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"
+      - "PRIVATE_TOP_ZONES=dev.mab.scot"
+      - "DRY_ROUTE53=true"
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock
+    networks:
+      - rook_public_net
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints: [node.role==manager] 
+
+networks:
+  rook_public_net:
+    external: true

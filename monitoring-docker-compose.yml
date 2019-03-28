@@ -1,0 +1,363 @@
+version: "3"
+
+networks:
+  default:
+  rook_monitoring_net:
+    external: true 
+  rook_logging_net:
+    external: true  
+
+services:
+  swarm-discovery-server:
+    image: seqvence/prometheus-swarm
+    command:
+      - server
+      - -l=debug
+    networks:
+      - rook_monitoring_net
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager    
+
+  swarm-discovery-client:
+    image: seqvence/prometheus-swarm
+    command:
+      - client
+      - -i=5
+      - -s=http://swarm-discovery-server:8080
+      - -o=/swarm-endpoints/swarm-endpoints.json
+      - -p=monitoring_prometheus
+      - -l=debug
+    networks:
+      - rook_monitoring_net
+    volumes:  
+      - swarm-endpoints:/swarm-endpoints/
+      
+  cadvisor:
+    image: google/cadvisor:${CADVISOR_VERSION:-v0.26.1}
+    networks:
+      - rook_monitoring_net
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock,readonly
+      - /:/rootfs
+      - /var/run:/var/run
+      - /sys:/sys
+      - /var/lib/docker/:/var/lib/docker
+    deploy:
+      mode: global
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 254M
+
+  node-exporter:
+    image: basi/node-exporter:${NODE_EXPORTER_VERSION:-latest}
+    networks:
+      - rook_monitoring_net
+    volumes:
+      - /proc:/host/proc
+      - /sys:/host/sys
+      - /:/rootfs
+      - /etc/hostname:/etc/host_hostname
+    hostname: "{{.Node.ID}}"
+    environment:
+      HOST_HOSTNAME: /etc/host_hostname
+    command:
+      - '--path.procfs=/host/proc' 
+      - '--path.sysfs=/host/sys'
+      - --collector.filesystem.ignored-mount-points
+      -  "^/(sys|proc|dev|host|etc|rootfs/var/lib/docker/containers|rootfs/var/lib/docker/overlay2|rootfs/run/docker/netns|rootfs/var/lib/docker/aufs)($$|/)"
+    deploy:
+      mode: global
+      resources:
+        limits:
+          cpus: '0.10'
+          memory: 32M
+        reservations:
+          cpus: '0.10'
+          memory: 16M
+
+  docker-exporter:
+    image: basi/socat:${DOCKER_EXPORTER_VERSION:-v0.1.0}
+    networks:
+      - rook_monitoring_net
+    environment:
+     IN: "172.19.0.1:4999"
+     OUT: "4999"
+    deploy:
+      mode: global
+      resources:
+        limits:
+          cpus: '0.05'
+          memory: 6M
+        reservations:
+          cpus: '0.05'
+          memory: 4M
+
+  logspout:
+    image: bekt/logspout-logstash:latest
+    networks:
+      - rook_logging_net
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      ROUTE_URIS: logstash+tcp://logstash:5000
+      DOCKER_LABELS: "true"
+    deploy:
+      mode: global
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+      placement:
+        constraints: [node.role!=manager]
+
+
+  elasticsearch:
+    image: elasticsearch:5.6.13
+    ports:
+      - 9200:9200
+    networks:
+      - rook_logging_net
+      - rook_monitoring_net
+    volumes:
+      - elasticsearch:/usr/share/elasticsearch/data
+      - elasticsearch_conf:/etc/elasticsearch/
+    environment:
+      - LOGSPOUT=ignore
+      - discovery.type=single-node
+      - cluster.name=docker-cluster
+      - bootstrap.memory_lock=true
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms1024m -Xmx1024m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    cap_add:
+      - IPC_LOCK
+    deploy:
+      mode: replicated
+      replicas: 1
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4096M
+        reservations:
+          cpus: '2'
+          memory: 2048M
+        restart_policy:
+          condition: on-failure
+          delay: 5s
+          max_attempts: 3
+          window: 120s
+
+  alertmanager:
+    image: basi/alertmanager:${ALERTMANAGER_VERSION:-v0.8.0}
+    networks:
+      - rook_monitoring_net
+    ports:
+     - "9093:9093"
+    volumes:
+      - alertmanager:/alertmanager
+    environment:
+      SLACK_API: ${SLACK_API:-YOURTOKENGOESHERE}
+      LOGSTASH_URL: http://logstash:8080/
+    command: -config.file=/etc/alertmanager/config.yml
+    deploy:
+      mode: replicated
+      replicas: 1
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 32M
+        reservations:
+          cpus: '0.25'
+          memory: 16M
+
+  logstash:
+    image: basi/logstash:6.2.0
+    networks:
+      - rook_logging_net
+    volumes:
+      - logstash_conf:/usr/share/logstash/pipeline/
+    environment:
+      DEBUG:                  "${LOGSTASH_DEBUG:-false}"
+      LOGSPOUT:               ignore
+      ELASTICSEARCH_USER:     ${ELASTICSEARCH_LOGS_USER}
+      ELASTICSEARCH_PASSWORD: ${ELASTICSEARCH_LOGS_PASSWORD}
+      ELASTICSEARCH_SSL:      ${ELASTICSEARCH_LOGS_SSL}
+      ELASTICSEARCH_ADDR:     ${ELASTICSEARCH_LOGS_ADDR:-elasticsearch}
+      ELASTICSEARCH_PORT:     ${ELASTICSEARCH_LOGS_PORT:-9200}
+    deploy:
+      mode: replicated
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1600M
+        reservations:
+          cpus: '0.25'
+          memory: 800M
+      placement:
+        constraints: [node.role!=manager]
+
+  prometheus:
+    image: basi/prometheus-swarm:${PROMETHEUS_SWARM_VERSION:-v1.7.1}
+    ports:
+      - "9090:9090"
+    networks:
+      - rook_monitoring_net
+    volumes:
+      - prometheus:/prometheus
+      - prometheus_conf:/etc/prometheus
+      - swarm-endpoints:/swarm-endpoints/
+    command: 
+      - -config.file=/etc/prometheus/prometheus.yml 
+      - -storage.local.retention=360h 
+      - -storage.local.memory-chunks=1048576 
+      - -storage.local.path=/prometheus 
+      - -web.console.libraries=/etc/prometheus/console_libraries 
+      - -web.console.templates=/etc/prometheus/consoles
+      - -alertmanager.url=http://alertmanager:9093
+    deploy:
+      mode: replicated
+      replicas: 1
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4096M
+        reservations:
+          cpus: '1.50'
+          memory: 2048M
+
+  postgres:
+    image: "postgres:9.5"
+    environment:
+      POSTGRES_PASSWORD: grafana
+      POSTGRES_USER: grafana
+    ports:
+    - 5432:5432
+
+  grafana:
+    image: basi/grafana:4.4.3
+    ports:
+      - "3000:3000"
+    networks:
+      - rook_monitoring_net
+    volumes:
+      - grafana:/var/lib/grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_PASSWORD:-admin}
+      PROMETHEUS_ENDPOINT: http://prometheus:9090
+      ELASTICSEARCH_ENDPOINT: ${ES_ADDRESS:-http://elasticsearch:9200}
+      ELASTICSEARCH_USER: ${ES_USERNAME}
+      ELASTICSEARCH_PASSWORD: ${ES_PASSWORD}
+    deploy:
+      mode: replicated
+      replicas: 1
+      resources:
+        limits:
+          cpus: '1'
+          memory: 256M
+        reservations:
+          cpus: '0.50'
+          memory: 128M
+
+  kibana:
+    image: kibana:5.6.13
+    networks:
+      - rook_logging_net
+    ports:
+      - "5601:5601"
+    environment:
+      - LOGSPOUT=ignore
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+    deploy:
+      mode: replicated
+      replicas: 1
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 384M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+volumes:
+
+  alertmanager:
+    driver: "cloudstor:aws"
+    driver_opts:
+      ebstype: gp2
+      size: 2
+      iops: 1000
+      backing: relocatable
+
+  prometheus:
+    driver: "cloudstor:aws"
+    driver_opts:
+    ebstype: gp2
+      size: 2
+      iops: 1000
+      backing: relocatable
+
+  prometheus_conf:
+   driver: "cloudstor:aws"
+   driver_opts:
+     ebstype: gp2
+     size: 2
+     iops: 1000
+     backing: relocatable
+
+  grafana:
+   driver: "cloudstor:aws"
+   driver_opts:
+     ebstype: gp2
+     size: 2
+     iops: 1000
+     backing: relocatable
+     
+  swarm-endpoints:
+   driver: "cloudstor:aws"
+   driver_opts:
+     ebstype: gp2
+     size: 2
+     iops: 1000
+     backing: relocatable
+
+  elasticsearch:
+    driver: "cloudstor:aws"
+    driver_opts:
+      ebstype: gp2
+      size: 2
+      iops: 1000
+      backing: relocatable
+
+  elasticsearch_conf:
+    driver: "cloudstor:aws"
+    driver_opts:
+      ebstype: gp2
+      size: 2
+      iops: 1000
+      backing: relocatable
+
+  logstash_conf:
+    driver: "cloudstor:aws"
+    driver_opts:
+      ebstype: gp2
+      size: 2
+      iops: 1000
+      backing: relocatable

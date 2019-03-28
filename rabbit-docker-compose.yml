@@ -1,13 +1,16 @@
 version: '3.4'
 
 services:
-  rabbit:
+  queue:
     image: gavinmroy/alpine-rabbitmq-autocluster
+    labels:
+      - "traefik.frontend.rule=Host:queue.a.foo.bar"
     networks:
-      - ${ENVIRONMENT}_net
+      - rook_private_net
+      - rook_public_net
     hostname: "rabbit-node-{{.Task.Slot}}"
     ports:
-      - "5673:5672"
+      - "15672:15672"
     volumes:
       - rabbit_vol:/var/lib/rabbitmq/mnesia
     environment:
@@ -18,12 +21,10 @@ services:
       - CONSUL_SVC_ADDR_AUTO=true
       - AUTOCLUSTER_CLEANUP=true
       - CLEANUP_WARN_ONLY=false
-      - RABBITMQ_ERLANG_COOKIE=secrect 
+      - RABBITMQ_ERLANG_COOKIE=secrect
     deploy:
       mode: replicated
       replicas: 1
-      placement:
-        constraints: [node.labels.platform == linux] 
       resources:
         limits:
           cpus: '0.75'
@@ -35,7 +36,7 @@ services:
   consul:
     image: progrium/consul
     networks:
-      - ${ENVIRONMENT}_net
+      - rook_private_net
     ports:
       - "8500:8500"
     environment:
@@ -53,27 +54,26 @@ services:
     deploy:
       mode: replicated
       replicas: 1
-      placement:
-        constraints: [node.labels.platform == linux] 
       resources:
         limits:
-        cpus: '0.50'
-        memory: 1024M
-      reservations:
-        cpus: '0.25'
-        memory: 128M 
+          cpus: '0.50'
+          memory: 1024M
+        reservations:
+          cpus: '0.25'
+          memory: 128M 
 
 networks:
-  ${ENVIRONMENT}_net:
+  rook_private_net:
+    external: true
+  rook_public_net:
     external: true
 
 volumes:
   rabbit_vol:
-    name: smbhost/share/rabbit_vol-{{.Task.Slot}}
-    driver: cifs
+    name: rabbit_vol-{{.Task.Slot}}
+    driver: "cloudstor:aws"
     driver_opts:
-      username: myusername
-      password: password
-      domain: mms
-      security: security
-      fileMode: 0777
+      ebstype: gp2
+      size: 2
+      iops: 1000
+      backing: relocatable

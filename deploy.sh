@@ -20,7 +20,7 @@ EOL
 openssl aes-256-cbc -K $encrypted_97c782117613_key -iv $encrypted_97c782117613_iv -in rsakey.pem.enc -out rsakey.pem -d
 chmod 400 rsakey.pem
 
-aws cloudformation create-stack --stack-name rookstack --template-url https://editions-us-east-1.s3.amazonaws.com/aws/stable/Docker.tmpl --region eu-west-1 --parameters ParameterKey=KeyName,ParameterValue=rsakey ParameterKey=InstanceType,ParameterValue=t2.micro ParameterKey=ManagerInstanceType,ParameterValue=t2.micro ParameterKey=ClusterSize,ParameterValue=3 --capabilities CAPABILITY_IAM 
+aws cloudformation create-stack --stack-name rookstack --template-url https://editions-us-east-1.s3.amazonaws.com/aws/stable/18.03.0/Docker.tmpl --region eu-west-1 --parameters ParameterKey=KeyName,ParameterValue=rsakey ParameterKey=InstanceType,ParameterValue=t2.micro ParameterKey=ManagerInstanceType,ParameterValue=t2.micro ParameterKey=ClusterSize,ParameterValue=3 --capabilities CAPABILITY_IAM 
 
 
 
@@ -55,5 +55,14 @@ IP=`aws ec2 describe-instances --filter "Name=tag:swarm-node-type,Values=manager
 echo Manager IP Address: $IP
 ssh -oStrictHostKeyChecking=no -4 -i rsakey.pem -NL localhost:2374:/var/run/docker.sock docker@$IP & docker -H localhost:2374 info
 echo "port forwaring setup complete"
+sleep 5
 echo "try to run docker on the server"
 docker -H localhost:2374 info
+docker -H localhost:2374 network create --attachable --driver overlay rook_public_net
+docker -H localhost:2374 network create --attachable --driver overlay rook_private_net
+docker -H localhost:2374 network create --attachable --driver overlay rook_monitoring_net
+docker -H localhost:2374 network create --attachable --driver overlay rook_logging_net
+docker -H localhost:2374 stack deploy -c visualiser-docker-compose.yml visualiser
+docker -H localhost:2374 stack deploy -c nginx-docker-compose.yml proxy
+docker -H localhost:2374 stack deploy -c rabbit-docker-compose.yml queue
+docker -H localhost:2374 stack deploy -c monitoring-docker-compose.yml monitoring
