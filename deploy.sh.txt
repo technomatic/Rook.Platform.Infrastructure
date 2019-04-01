@@ -17,7 +17,7 @@ output = json
 region = ${AWS_REGION}
 EOL
 
-#Assuming your repo is on github and connected to travis-ci. In AWS create a keypair (.pem) and use travis cli to encrypt it inside the repo directory. Do not commit the .pem to the repo, 
+#Assuming your repo is on githum abd connected to travis-ci. In AWS create a keypair (.pem) and use travis cli to encrypt it inside the repo directory. Do not commit the .pem to the repo, 
 #only the encrypted version and add the variables travis generates in the build to the line below
 openssl aes-256-cbc -K $encrypted_97c782117613_key -iv $encrypted_97c782117613_iv -in rsakey.pem.enc -out rsakey.pem -d
 chmod 400 rsakey.pem
@@ -53,8 +53,6 @@ while [[ 1 ]]; do
     sleep 60
 done
 
-export HASHED_PASSWORD=$(openssl passwd -apr1 $PASSWORD)
-
 
 #get the swarm manager public IP address and set local ssh port forwarding to connect to docker
 IP=`aws ec2 describe-instances --filter "Name=tag:swarm-node-type,Values=manager"  --query 'Reservations[].Instances[].{IP:PublicIpAddress}' --output text | grep -v None | head -n1`
@@ -64,15 +62,13 @@ ssh -oStrictHostKeyChecking=no -4 -i rsakey.pem -NL localhost:2374:/var/run/dock
 sleep 5
 
 #create docker networks
-docker -H localhost:2374 network create --attachable --driver overlay traefik-public
+docker -H localhost:2374 network create --attachable --driver overlay rook_public_net
 docker -H localhost:2374 network create --attachable --driver overlay rook_private_net
-#docker -H localhost:2374 network create --attachable --driver overlay rook_monitoring_net
-#docker -H localhost:2374 network create --attachable --driver overlay rook_logging_net
+docker -H localhost:2374 network create --attachable --driver overlay rook_monitoring_net
+docker -H localhost:2374 network create --attachable --driver overlay rook_logging_net
 
 #deploy platform stacks. 
-
-docker -H localhost:2374 stack deploy -c traefik-docker-compose.yml proxy
-docker -H localhost:2374 stack deploy -c monitoring-docker-compose.yml monitoring
 docker -H localhost:2374 stack deploy -c visualiser-docker-compose.yml visualiser
-
-#docker -H localhost:2374 stack deploy -c rabbit-docker-compose.yml queue
+docker -H localhost:2374 stack deploy -c nginx-docker-compose.yml proxy
+docker -H localhost:2374 stack deploy -c rabbit-docker-compose.yml queue
+docker -H localhost:2374 stack deploy -c monitoring-docker-compose.yml monitoring

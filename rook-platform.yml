@@ -1,0 +1,249 @@
+version: "3.3"
+
+services:
+
+  scalingservice:
+    image: rookframework/rook-platform-scaling
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    deploy:
+      mode: replicated
+      replicas: 1
+      labels:
+        prometheus.enable: "true"
+        prometheus.port: "80"
+        prometheus.path: "/metrics"
+        prometheus.job: "${ENVIRONMENT}_scaling"        
+      placement:
+        constraints:
+          - node.role == manager		  
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 1024M
+        reservations:
+          cpus: '0.10'
+          memory: 256M
+    networks:
+      - rook_private_net
+
+  relationshipservice:
+    image: rookframework/rook-platform-relationship
+    environment:
+      - LOGLEVEL
+      - FQDSN=${FQDSN}
+    networks:
+      - rook_private_net
+      - relationship_net
+    deploy:
+      mode: replicated
+      replicas: 2
+      placement:
+        constraints:
+          - node.role != manager
+      labels:
+        prometheus.enable: "true"
+        prometheus.port: "80"
+        prometheus.path: "/metrics"
+        prometheus.job: "${ENVIRONMENT}_relationshipservice"
+      resources:
+        limits:
+          cpus: '0.40'
+          memory: 1024M
+        reservations:
+          cpus: '0.20'
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+
+  organisationservice:
+    image: rookframework/rook-platform-organisation
+    environment:
+      - MONGODATABASEURI
+      - MONGODATABASENAME
+      - LOGLEVEL
+      - FQDSN=${FQDSN}
+    networks:
+      - rook_private_net
+    deploy:
+      mode: replicated
+      replicas: 2
+      placement:
+        constraints:
+          - node.role != manager
+      labels:
+        prometheus.enable: "true"
+        prometheus.port: "80"
+        prometheus.path: "/metrics"
+        prometheus.job: "${ENVIRONMENT}_organisationservicecore"
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 1024M
+        reservations:
+          cpus: '0.10'
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+
+  userservice:
+    image: rookframework/rook-platform-user
+    environment:
+      - MONGODATABASEURI
+      - MONGODATABASENAME
+      - LOGLEVEL      
+      - FQDSN=${FQDSN}
+    networks:
+      - rook_private_net
+    deploy:
+      mode: replicated
+      replicas: 2
+      placement:
+        constraints:
+          - node.role != manager
+      labels:
+        prometheus.enable: "true"
+        prometheus.port: "80"
+        prometheus.path: "/metrics"
+        prometheus.job: "${ENVIRONMENT}_userservicecore"
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 1024M
+        reservations:
+          cpus: '0.10'
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+
+
+  organisationapi:
+    image: rookframework/rook-platform-organisationapi
+    environment:
+      - IDENTITYSERVERADDRESS
+      - LOGLEVEL
+      - ORGANISATIONCACHETIMEOUT
+      - BASEURL
+      - FQDSN=${FQDSN}
+      - REQUIRESAUTHORISATION
+      - REQUIRESJWTVALIDATION
+    deploy:
+      mode: replicated
+      replicas: 2
+      placement:
+        constraints:
+          - node.role != manager
+      labels:
+        prometheus.enable: "true"
+        prometheus.port: "80"
+        prometheus.path: "/metrics"
+        prometheus.job: "${ENVIRONMENT}_organisationservicecoreapi"
+        com.docker.lb.hosts: ${DOMAIN}	
+        com.docker.lb.network: ucp-hrm	
+        com.docker.lb.port: 80
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 1024M
+        reservations:
+          cpus: '0.10'
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    networks:
+      - rook_private_net
+
+  userapi:
+    image: rookframework/rook-platform-userapi
+    environment:
+      - IDENTITYSERVERADDRESS
+      - LOGLEVEL
+      - ORGANISATIONCACHETIMEOUT
+      - BASEURL
+      - FQDSN=${FQDSN}
+      - REQUIRESAUTHORISATION
+      - REQUIRESJWTVALIDATION
+    deploy:
+      mode: replicated
+      replicas: 2
+      placement:
+        constraints:
+          - node.role != manager
+      labels:
+        prometheus.enable: "true"
+        prometheus.port: "80"
+        prometheus.path: "/metrics"
+        prometheus.job: "${ENVIRONMENT}_userservicecoreapi"
+        com.docker.lb.hosts: ${DOMAIN}	
+        com.docker.lb.network: ucp-hrm	
+        com.docker.lb.port: 80
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 1024M
+        reservations:
+          cpus: '0.10'
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    networks:
+      - rook_private_net
+
+  relationshippostgres:
+    image: postgres:11.1
+    environment:
+      - POSTGRES_PASSWORD=pass
+    networks:
+      - relationship_net
+    volumes:
+      - relationshippostgresvolume:/var/lib/postgresql/data
+    deploy:
+      placement:
+        constraints:
+          - node.role != manager
+      resources:
+        limits:
+          cpus: '0.40'
+          memory: 2048M
+        reservations:
+          cpus: '0.20'
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+
+        #2 mongos
+
+networks:
+  relationship_net:
+  rook_private_net:
+    external: true
+  rook_public_net:
+    external: true
+
+
+volumes:
+  relationshippostgresvolume:
+    driver: "cloudstor:aws"
+    driver_opts:
+      ebstype: gp2
+      size: 2
+      iops: 1000
+      backing: relocatable
