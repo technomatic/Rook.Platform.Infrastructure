@@ -33,7 +33,7 @@ configs:
   task_rules:
     file: ./prometheus/rules/swarm_task.rules.yml
   prometheus_config:
-    file: ../image/conf/prometheus.yml
+    file: ./prometheus/conf/prometheus.yml
 
 services:
   dockerd-exporter:
@@ -54,7 +54,7 @@ services:
           memory: 64M
 
   swarm-discovery-client:
-    image: jmendiara/prometheus-swarm-discovery:0.2.0}
+    image: jmendiara/prometheus-swarm-discovery:0.2.0
     command:
       - client
       - -i=5
@@ -63,7 +63,7 @@ services:
       - -p=swarmprom_prometheus
       - -l=debug
     networks:
-      - rook_private_net
+      - net
     volumes:  
       - swarm-endpoints:/swarm-endpoints:rw
     deploy:
@@ -89,7 +89,7 @@ services:
       - server
       - -l=debug
     networks:
-      - rook_private_net
+      - net
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     deploy:
@@ -273,7 +273,7 @@ services:
       - '--storage.tsdb.path=/prometheus'
       - '--storage.tsdb.retention=24h'
     volumes:
-      - prometheus:/prometheus
+      - prometheus:/prometheus:rw
       - swarm-endpoints:/etc/swarm-endpoints:rw
     configs:
       - source: node_rules

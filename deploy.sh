@@ -53,7 +53,16 @@ while [[ 1 ]]; do
     sleep 60
 done
 
+
+export EMAIL=mark.jones@mab.org.uk
+export DOMAIN=dev.mab.scot
+export USERNAME=admin
+export PASSWORD=SmallGreenFish
 export HASHED_PASSWORD=$(openssl passwd -apr1 $PASSWORD)
+export CONSUL_REPLICAS=3
+export TRAEFIK_REPLICAS=3
+export ADMIN_USER=admin
+export ENVIRONMENT=dev
 
 
 #get the swarm manager public IP address and set local ssh port forwarding to connect to docker
@@ -63,17 +72,22 @@ ssh -oStrictHostKeyChecking=no -4 -i rsakey.pem -NL localhost:2374:/var/run/dock
 #sometime the script is to fast and things don't work as expected
 sleep 5
 
+export NODE_ID=$(docker info -f '{{.Swarm.NodeID}}')
+
+docker node update --label-add swarmpit.db-data=true $NODE_ID
+
 #create docker networks
-docker -H localhost:2374 network create --attachable --driver overlay traefik-public
-docker -H localhost:2374 network create --attachable --driver overlay rook_private_net
+docker network create --attachable --driver overlay traefik-public
+docker network create --attachable --driver overlay rook_private_net
 #docker -H localhost:2374 network create --attachable --driver overlay rook_monitoring_net
 #docker -H localhost:2374 network create --attachable --driver overlay rook_logging_net
 
 #deploy platform stacks. 
 
-docker -H localhost:2374 stack deploy -c traefik-docker-compose.yml proxy
-docker -H localhost:2374 stack deploy -c monitoring-docker-compose.yml monitoring
-docker -H localhost:2374 stack deploy -c visualiser-docker-compose.yml visualiser
-docker -H localhost:2374 stack deploy -c swarmpit-docker-compose.yml manager
+docker stack deploy -c traefik-docker-compose.yml proxy
+docker stack deploy -c monitoring-docker-compose.yml monitoring
+docker stack deploy -c visualiser-docker-compose.yml visualiser
+docker stack deploy -c swarmpit-docker-compose.yml manager
 
-#docker -H localhost:2374 stack deploy -c rabbit-docker-compose.yml queue
+docker stack deploy -c rabbit-docker-compose.yml queue
+docker stack deploy -c rook-platform.yml rook

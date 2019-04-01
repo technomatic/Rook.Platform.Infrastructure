@@ -1,0 +1,32 @@
+version: "3.3"
+
+networks:
+  net:
+    driver: overlay
+    attachable: true
+
+services:
+  swarm-discovery-server:
+    image: ${DTRNAME}dtr${DOMAINNAME}/operations/swarmprom-swarm-discovery-server:${SWARM_DISCOVERY_SERVER_VERSION}
+    command:
+      - server
+      - -l=debug
+    networks:
+      - net
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    deploy:
+      mode: replicated
+      replicas: 1
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: '256M'
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+      restart_policy:
+        condition: 'any'
+      placement:
+        constraints:
+          - node.role == manager  

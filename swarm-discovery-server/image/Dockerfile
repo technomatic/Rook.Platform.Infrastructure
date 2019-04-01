@@ -1,0 +1,1 @@
+FROM jmendiara/prometheus-swarm-discovery:0.2.0

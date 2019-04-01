@@ -3,7 +3,7 @@ version: "3.3"
 services:
 
   scalingservice:
-    image: rookframework/rook-platform-scaling
+    image: rookframework/rook-platform-scaling:1.10.1.78
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     deploy:
@@ -13,7 +13,7 @@ services:
         prometheus.enable: "true"
         prometheus.port: "80"
         prometheus.path: "/metrics"
-        prometheus.job: "${ENVIRONMENT}_scaling"        
+        prometheus.job: "${ENVIRONMENT}_scalingservice"        
       placement:
         constraints:
           - node.role == manager		  
@@ -28,7 +28,7 @@ services:
       - rook_private_net
 
   relationshipservice:
-    image: rookframework/rook-platform-relationship
+    image: rookframework/rook-platform-relationship:1.4.1.78
     environment:
       - LOGLEVEL
       - FQDSN=${FQDSN}
@@ -60,7 +60,7 @@ services:
         window: 120s
 
   organisationservice:
-    image: rookframework/rook-platform-organisation
+    image: rookframework/rook-platform-organisation:1.1.1.78
     environment:
       - MONGODATABASEURI
       - MONGODATABASENAME
@@ -78,7 +78,7 @@ services:
         prometheus.enable: "true"
         prometheus.port: "80"
         prometheus.path: "/metrics"
-        prometheus.job: "${ENVIRONMENT}_organisationservicecore"
+        prometheus.job: "${ENVIRONMENT}_organisationservice"
       resources:
         limits:
           cpus: '0.25'
@@ -91,9 +91,11 @@ services:
         delay: 5s
         max_attempts: 3
         window: 120s
+    depends_on:
+      - organisationmongo
 
   userservice:
-    image: rookframework/rook-platform-user
+    image: rookframework/rook-platform-user:1.1.1.78
     environment:
       - MONGODATABASEURI
       - MONGODATABASENAME
@@ -111,7 +113,7 @@ services:
         prometheus.enable: "true"
         prometheus.port: "80"
         prometheus.path: "/metrics"
-        prometheus.job: "${ENVIRONMENT}_userservicecore"
+        prometheus.job: "${ENVIRONMENT}_userservice"
       resources:
         limits:
           cpus: '0.25'
@@ -124,10 +126,12 @@ services:
         delay: 5s
         max_attempts: 3
         window: 120s
+    depends_on:
+      - usermongo
 
 
   organisationapi:
-    image: rookframework/rook-platform-organisationapi
+    image: rookframework/rook-platform-organisationapi:1.1.1.78
     environment:
       - IDENTITYSERVERADDRESS
       - LOGLEVEL
@@ -143,13 +147,18 @@ services:
         constraints:
           - node.role != manager
       labels:
-        prometheus.enable: "true"
-        prometheus.port: "80"
-        prometheus.path: "/metrics"
-        prometheus.job: "${ENVIRONMENT}_organisationservicecoreapi"
-        com.docker.lb.hosts: ${DOMAIN}	
-        com.docker.lb.network: ucp-hrm	
-        com.docker.lb.port: 80
+        - "prometheus.enable=true"
+        - "prometheus.port=80"
+        - "prometheus.path=/metrics"
+        - "prometheus.job=${ENVIRONMENT}_organisationapi"
+        - traefik.frontend.rule=Host:organisationapi.${DOMAIN}
+        - traefik.enable=true
+        - traefik.port=15672
+        - traefik.tags=traefik-public
+        - traefik.docker.network=traefik-public
+        - traefik.redirectorservice.frontend.entryPoints=http
+        - traefik.redirectorservice.frontend.redirect.entryPoint=https
+        - traefik.webservice.frontend.entryPoints=https 
       resources:
         limits:
           cpus: '0.25'
@@ -164,9 +173,10 @@ services:
         window: 120s
     networks:
       - rook_private_net
+      - traefik-public
 
   userapi:
-    image: rookframework/rook-platform-userapi
+    image: rookframework/rook-platform-userapi:1.1.1.78
     environment:
       - IDENTITYSERVERADDRESS
       - LOGLEVEL
@@ -182,13 +192,18 @@ services:
         constraints:
           - node.role != manager
       labels:
-        prometheus.enable: "true"
-        prometheus.port: "80"
-        prometheus.path: "/metrics"
-        prometheus.job: "${ENVIRONMENT}_userservicecoreapi"
-        com.docker.lb.hosts: ${DOMAIN}	
-        com.docker.lb.network: ucp-hrm	
-        com.docker.lb.port: 80
+        - "prometheus.enable=true"
+        - "prometheus.port=80"
+        - "prometheus.path=/metrics"
+        - "prometheus.job=${ENVIRONMENT}_userapi"
+        - traefik.frontend.rule=Host:userapi.${DOMAIN}
+        - traefik.enable=true
+        - traefik.port=15672
+        - traefik.tags=traefik-public
+        - traefik.docker.network=traefik-public
+        - traefik.redirectorservice.frontend.entryPoints=http
+        - traefik.redirectorservice.frontend.redirect.entryPoint=https
+        - traefik.webservice.frontend.entryPoints=https 
       resources:
         limits:
           cpus: '0.25'
@@ -203,6 +218,7 @@ services:
         window: 120s
     networks:
       - rook_private_net
+      - traefik-public
 
   relationshippostgres:
     image: postgres:11.1
@@ -229,13 +245,26 @@ services:
         max_attempts: 3
         window: 120s
 
-        #2 mongos
+  usermongo:
+    image: mongo
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+
+  organisationmongo:
+    image: mongo
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+
 
 networks:
   relationship_net:
   rook_private_net:
     external: true
-  rook_public_net:
+  traefik-public:
     external: true
 
 

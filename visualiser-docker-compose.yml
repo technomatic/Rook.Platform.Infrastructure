@@ -4,15 +4,26 @@ services:
  visualiser:
    image: dockersamples/visualizer
    volumes:
-   - "/var/run/docker.sock:/var/run/docker.sock"
+     - "/var/run/docker.sock:/var/run/docker.sock"
    ports:
-   - "8081:8080"
-   environment:
-      - VIRTUAL_HOST=vis.dev.mab.scot
-      - ZONE=dev.mab.scot
+     - "8081:8080"
    networks:
-      - rook_public_net
+     - traefik-public
    deploy:
-      placement:
-        constraints:
-          - node.role==manager
+     placement:
+       constraints:
+         - node.role==manager
+     labels:
+       - traefik.frontend.rule=Host:vis.${DOMAIN}
+       - traefik.enable=true
+       - traefik.port=8080
+       - traefik.tags=traefik-public
+       - traefik.docker.network=traefik-public
+       - traefik.redirectorservice.frontend.entryPoints=http
+       - traefik.redirectorservice.frontend.redirect.entryPoint=https
+       - traefik.webservice.frontend.entryPoints=https 
+
+
+networks:
+  traefik-public:
+    external: true
