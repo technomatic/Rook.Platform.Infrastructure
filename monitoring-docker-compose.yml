@@ -17,13 +17,13 @@ volumes:
         size: 2
         iops: 1000
         backing: relocatable
-    prometheus:
-      driver: "cloudstor:aws"
-      driver_opts:
-        ebstype: gp2
-        size: 2
-        iops: 1000
-        backing: relocatable
+    # prometheus:
+    #   driver: "cloudstor:aws"
+    #   driver_opts:
+    #     ebstype: gp2
+    #     size: 2
+    #     iops: 1000
+    #     backing: relocatable
 
 configs:
   dockerd_config:
@@ -273,7 +273,7 @@ services:
       - '--storage.tsdb.path=/prometheus'
       - '--storage.tsdb.retention=24h'
     volumes:
-      - prometheus:/prometheus:rw
+     # - prometheus:/prometheus:rw
       - swarm-endpoints:/etc/swarm-endpoints:rw
     configs:
       - source: node_rules
