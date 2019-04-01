@@ -74,5 +74,6 @@ docker -H localhost:2374 network create --attachable --driver overlay rook_priva
 docker -H localhost:2374 stack deploy -c traefik-docker-compose.yml proxy
 docker -H localhost:2374 stack deploy -c monitoring-docker-compose.yml monitoring
 docker -H localhost:2374 stack deploy -c visualiser-docker-compose.yml visualiser
+docker -H localhost:2374 stack deploy -c swarmpit-docker-compose.yml manager
 
 #docker -H localhost:2374 stack deploy -c rabbit-docker-compose.yml queue
