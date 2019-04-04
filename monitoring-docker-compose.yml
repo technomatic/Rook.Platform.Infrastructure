@@ -10,20 +10,7 @@ networks:
 volumes:
     grafana: {}
     alertmanager: {}
-    swarm-endpoints:
-      driver: "cloudstor:aws"
-      driver_opts:
-        ebstype: gp2
-        size: 2
-        iops: 1000
-        backing: relocatable
-    # prometheus:
-    #   driver: "cloudstor:aws"
-    #   driver_opts:
-    #     ebstype: gp2
-    #     size: 2
-    #     iops: 1000
-    #     backing: relocatable
+    conf: {}
 
 configs:
   dockerd_config:
@@ -32,8 +19,6 @@ configs:
     file: ./prometheus/rules/swarm_node.rules.yml
   task_rules:
     file: ./prometheus/rules/swarm_task.rules.yml
-  prometheus_config:
-    file: ./prometheus/conf/prometheus.yml
 
 services:
   dockerd-exporter:
@@ -65,7 +50,7 @@ services:
     networks:
       - net
     volumes:  
-      - swarm-endpoints:/swarm-endpoints:rw
+      - conf:/swarm-endpoints:rw
     deploy:
       mode: replicated
       replicas: 1
@@ -80,7 +65,7 @@ services:
         condition: 'any'
       placement:
         constraints:
-          - node.labels.appworkloads == true
+          - node.role != manager  
 
 
   swarm-discovery-server:
@@ -265,7 +250,7 @@ services:
           memory: 64M
 
   prometheus:
-    image: stefanprodan/swarmprom-prometheus:v2.5.0
+    image: rookframework/swarmprom-prometheus
     networks:
       - net
     command:
@@ -273,21 +258,18 @@ services:
       - '--storage.tsdb.path=/prometheus'
       - '--storage.tsdb.retention=24h'
     volumes:
-     # - prometheus:/prometheus:rw
-      - swarm-endpoints:/etc/swarm-endpoints:rw
+      - conf:/etc/swarm-endpoints:rw
     configs:
       - source: node_rules
         target: /etc/prometheus/swarm_node.rules.yml
       - source: task_rules
         target: /etc/prometheus/swarm_task.rules.yml
-      - source: prometheus_config
-        target: /etc/prometheus/prometheus.yml
     deploy:
       mode: replicated
       replicas: 1
       placement:
         constraints:
-          - node.role == manager
+          - node.role != manager
       resources:
         limits:
           memory: 2048M
