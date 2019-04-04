@@ -3,8 +3,11 @@ version: '3.4'
 services:
   queue:
     image: gavinmroy/alpine-rabbitmq-autocluster
+    hostname: queue
     networks:
-      - rook_private_net
+      rook_private_net:
+        aliases:
+          - queue
       - traefik-public
  #   ports:
 #      - "15672:15672"

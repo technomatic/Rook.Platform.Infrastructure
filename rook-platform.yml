@@ -252,6 +252,8 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: rook
       MONGO_INITDB_ROOT_PASSWORD: rook
+    networks:
+      - rook_private_net
 
   organisationmongo:
     image: mongo
@@ -260,6 +262,8 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: rook
+    networks:
+      - rook_private_net
 
 
 networks:
