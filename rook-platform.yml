@@ -3,7 +3,7 @@ version: "3.3"
 services:
 
   scalingservice:
-    image: rookframework/rook-platform-scaling:1.15.1.92
+    image: rookframework/rook-platform-scaling:1.18.1.94
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     deploy:
@@ -28,19 +28,15 @@ services:
       - rook_private_net
 
   relationshipservice:
-    image: rookframework/rook-platform-relationship:1.4.1.78
+    image: rookframework/rook-platform-relationship:1.6.1.94
     environment:
       - LOGLEVEL
       - FQDSN=${FQDSN}
     networks:
       - rook_private_net
-      - relationship_net
     deploy:
       mode: replicated
       replicas: 2
-      placement:
-        constraints:
-          - node.role != manager
       labels:
         prometheus.enable: "true"
         prometheus.port: "80"
@@ -60,7 +56,7 @@ services:
         window: 120s
 
   organisationservice:
-    image: rookframework/rook-platform-organisation:1.1.1.78
+    image: rookframework/rook-platform-organisation:1.3.1.94
     environment:
       - MONGODATABASEURI
       - MONGODATABASENAME
@@ -95,7 +91,7 @@ services:
       - organisationmongo
 
   userservice:
-    image: rookframework/rook-platform-user:1.7.1.92
+    image: rookframework/rook-platform-user:1.9.1.94
     environment:
       - MONGODATABASEURI
       - MONGODATABASENAME
@@ -131,7 +127,7 @@ services:
 
 
   organisationapi:
-    image: rookframework/rook-platform-organisationapi:1.1.1.78
+    image: rookframework/rook-platform-organisationapi:1.4.1.94
     environment:
       - IDENTITYSERVERADDRESS
       - LOGLEVEL
@@ -176,7 +172,7 @@ services:
       - traefik-public
 
   userapi:
-    image: rookframework/rook-platform-userapi:1.3.1.93
+    image: rookframework/rook-platform-userapi:1.5.1.94
     environment:
       - IDENTITYSERVERADDRESS
       - LOGLEVEL
@@ -225,9 +221,11 @@ services:
     environment:
       - POSTGRES_PASSWORD=pass
     networks:
-      - relationship_net
+      rook_private_net:
+        aliases:
+          - relationshippostgres
     volumes:
-      - relationshippostgresvolume:/var/lib/postgresql/data
+      - relationshippostgresvolume:/var/lib/postgresql
     deploy:
       placement:
         constraints:
@@ -253,21 +251,24 @@ services:
       MONGO_INITDB_ROOT_USERNAME: rook
       MONGO_INITDB_ROOT_PASSWORD: rook
     networks:
-      - rook_private_net
+      rook_private_net:
+        aliases:
+          - usermongo
 
   organisationmongo:
     image: mongo
     command: --smallfiles
     restart: always
     environment:
-      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_USERNAME: rook
       MONGO_INITDB_ROOT_PASSWORD: rook
     networks:
-      - rook_private_net
+      rook_private_net:
+        aliases:
+          - organisationmongo
 
 
 networks:
-  relationship_net:
   rook_private_net:
     external: true
   traefik-public:

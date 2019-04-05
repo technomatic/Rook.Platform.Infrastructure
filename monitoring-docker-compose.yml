@@ -43,9 +43,9 @@ services:
     command:
       - client
       - -i=5
-      - -s=http://swarmprom_swarm-discovery-server:8080
+      - -s=http://swarm-discovery-server:8080
       - -o=/swarm-endpoints/swarm-endpoints.json
-      - -p=swarmprom_prometheus
+      - -p=monitoring_prometheus
       - -l=debug
     networks:
       - net
@@ -74,7 +74,9 @@ services:
       - server
       - -l=debug
     networks:
-      - net
+      net:
+        aliases:
+          - swarm-discovery-server
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     deploy:

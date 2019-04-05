@@ -23,7 +23,7 @@ openssl aes-256-cbc -K $encrypted_97c782117613_key -iv $encrypted_97c782117613_i
 chmod 400 rsakey.pem
 
 #Use the cloudformation template created by docker and approved by AWS. The latest version (18.09) has issues with cloudstor so using 18.03.0
-aws cloudformation create-stack --stack-name rookstack --template-url https://editions-us-east-1.s3.amazonaws.com/aws/stable/18.03.0/Docker.tmpl --region eu-west-1 --parameters ParameterKey=KeyName,ParameterValue=rsakey ParameterKey=InstanceType,ParameterValue=t2.micro ParameterKey=ManagerInstanceType,ParameterValue=t2.medium ParameterKey=ClusterSize,ParameterValue=5 --capabilities CAPABILITY_IAM 
+aws cloudformation create-stack --stack-name rookstack --template-body ./rook.json --region eu-west-1 --parameters ParameterKey=KeyName,ParameterValue=rsakey ParameterKey=InstanceType,ParameterValue=t2.micro ParameterKey=ManagerInstanceType,ParameterValue=t2.medium ParameterKey=ClusterSize,ParameterValue=5 --capabilities CAPABILITY_IAM 
 
 #wait for aws stack status to reach CREATE_COMPLETE
 stackStatus="CREATE_IN_PROGRESS"

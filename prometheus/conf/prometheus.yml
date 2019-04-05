@@ -53,6 +53,6 @@ scrape_configs:
        action: keep
      - source_labels: [__meta_swarm_task_name]
        target_label: task
-     - source_labels: [__meta_swarm_label_microlise_environment]
+     - source_labels: [__meta_swarm_label_rook_environment]
        target_label: env
 
