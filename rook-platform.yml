@@ -2,6 +2,330 @@ version: "3.3"
 
 services:
 
+  tasks:
+    image: rookframework/rook-platform-tasks
+    environment:
+      - GENERATE_ODS_DATA
+      - MONGO_SERVER
+      - MONGODATABASEURI
+      - MONGODATABASENAME
+      - QUEUEURI=amqp://rook:rook@queue:5672
+    networks:
+      - rook_private_net
+    deploy:
+      mode: replicated
+      replicas: 2
+      placement:
+        constraints: 
+          - node.role != manager	
+      labels:
+        prometheus.enable: "true"
+        prometheus.port: "80"
+        prometheus.path: "/metrics"
+        prometheus.job: "${ENVIRONMENT}_tasks"
+      resources:
+        limits:
+          cpus: '0.20'
+          memory: 256M
+        reservations:
+          cpus: '0.10'
+          memory: 128M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+
+  rolesapi:
+    image: rookframework/rook-platform-rolesapi
+    environment:
+      - IDENTITYSERVERADDRESS
+      - LOGLEVEL
+      - BASEURL
+      - QUEUEURI=amqp://rook:rook@queue:5672
+    deploy:
+      mode: replicated
+      replicas: 1
+      labels:
+        - traefik.frontend.rule=Host:rolesapi.${DOMAIN}
+        - traefik.enable=true
+        - traefik.port=80
+        - traefik.tags=traefik-public
+        - traefik.docker.network=traefik-public
+        - traefik.redirectorservice.frontend.entryPoints=http
+        - traefik.redirectorservice.frontend.redirect.entryPoint=https
+        - traefik.webservice.frontend.entryPoints=https 
+        prometheus.enable: "true"
+        prometheus.port: "81"
+        prometheus.path: "/metrics"
+        prometheus.job: "${ENVIRONMENT}_rolesapi"
+      placement:
+        constraints:
+          - node.role != manager	
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 1024M
+        reservations:
+          cpus: '0.10'
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    networks:
+      - rook_private_net
+      - traefik-public
+
+  roles:
+    image: rookframework/rook-platform-roles
+    environment:
+      - MONGODATABASEURI
+      - MONGODATABASENAME
+    networks:
+      - rook_private_net
+    deploy:
+      mode: replicated
+      replicas: 2
+      placement:
+        constraints: 
+          - node.role != manager	
+      resources:
+        limits:
+          cpus: '0.20'
+          memory: 128M
+        reservations:
+          cpus: '0.10'
+          memory: 64M
+      labels:
+        prometheus.enable: "true"
+        prometheus.port: "80"
+        prometheus.path: "/metrics"
+        prometheus.job: "${ENVIRONMENT}_rolesservice"
+
+    #db
+
+  email:
+    image: rookframework/rook-platform-email
+    environment:
+      - QUEUEURI=amqp://rook:rook@queue:5672
+      - LOGLEVEL
+    networks:
+      - rook_private_net
+    deploy:
+      mode: replicated
+      replicas: 2
+      placement:
+        constraints: 
+          - node.role != manager	
+      labels:
+        prometheus.enable: "true"
+        prometheus.port: "80"
+        prometheus.path: "/metrics"
+        prometheus.job: "${ENVIRONMENT}_email"
+      resources:
+        limits:
+          cpus: '0.20'
+          memory: 128M
+        reservations:
+          cpus: '0.10'
+          memory: 64M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+  smtprelay:
+    image: namshi/smtp
+    networks:
+     - rook_private_net
+    environment:
+      - "RELAY_NETWORKS=:192.168.137.0/24:192.168.120.0/24:192.168.122.0/24:10.202.202.0/16:10.215.0.0/24"
+      - "SMARTHOST_ADDRESS=${HOST_ADDRESS}"
+      - "SMARTHOST_PORT=25"
+      - "SMARTHOST_USER=admin@dev.mab.scot"
+      - "SMARTHOST_PASSWORD=nopass"
+      - "SMARTHOST_ALIASES=*.dev.mab.scot"
+    deploy:
+      placement:
+        constraints:
+          - node.role != manager	
+      resources:
+        limits:
+          cpus: '0.20'
+          memory: 128M
+        reservations:
+          cpus: '0.20'
+          memory: 128M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+
+  clients:
+    image: rookframework/rook-platform-clients
+    environment:
+      - MONGODATABASEURI
+      - MONGODATABASENAME
+      - ADDAUTOMATIONCLIENTS
+      - RELEASE_ENVIRONMENTNAME
+      - FQDSN=${FQDSN}
+      - QUEUEURI=amqp://rook:rook@queue:5672
+    networks:
+      - rook_private_net
+    deploy:
+      mode: replicated
+      replicas: 2
+      placement:
+        constraints: 
+          - node.role != manager	
+      labels:
+        prometheus.enable: "true"
+        prometheus.port: "80"
+        prometheus.path: "/metrics"
+        prometheus.job: "${ENVIRONMENT}_identityservicecoreclients"
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 1024M
+        reservations:
+          cpus: '0.10'
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+
+#clients db
+
+  activityauth:
+    image: rookframework/rook-platform-activityauth
+    environment:
+      - MONGODATABASEURI
+      - MONGODATABASENAME
+      - LOGLEVEL
+      - QUEUEURI=amqp://rook:rook@queue:5672
+    networks:
+      - rook_private_net
+    deploy:
+      mode: replicated
+      replicas: 2
+      labels:
+        prometheus.enable: "true"
+        prometheus.port: "80"
+        prometheus.path: "/metrics"
+        prometheus.job: "${ENVIRONMENT}_activityauthorisation"
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 1024M
+        reservations:
+          cpus: '0.10'
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      placement:
+        constraints: 
+          - node.role != manager	
+
+    #db activity
+
+  activityauthapi:
+    image: rookframework/rook-platform-activityauthapi
+    environment:
+      - IDENTITYSERVERADDRESS
+      - LOGLEVEL
+      - BASEURL
+      - QUEUEURI=amqp://rook:rook@queue:5672
+    deploy:
+      mode: replicated
+      replicas: 1
+      labels:
+        - traefik.frontend.rule=Host:activityauthapi.${DOMAIN}
+        - traefik.enable=true
+        - traefik.port=80
+        - traefik.tags=traefik-public
+        - traefik.docker.network=traefik-public
+        - traefik.redirectorservice.frontend.entryPoints=http
+        - traefik.redirectorservice.frontend.redirect.entryPoint=https
+        - traefik.webservice.frontend.entryPoints=https 
+        prometheus.enable: "true"
+        prometheus.port: "81"
+        prometheus.path: "/metrics"
+        prometheus.job: "${ENVIRONMENT}_activityauthorisationapi"
+      placement:
+        constraints:
+          - node.role != manager	
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 1024M
+        reservations:
+          cpus: '0.10'
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    networks:
+      - rook_private_net
+      - traefik-public
+
+  identityservice:
+    image: rookframework/rook-platform-identity
+    environment:
+      - LOGLEVEL
+      - PUBLICORIGIN      
+      - FQDSN=${FQDSN}
+      - REQUIREHTTPS
+      - QUEUEURI=amqp://rook:rook@queue:5672
+    secrets:
+      - ${ENVIRONMENT}_signingcert
+      - CertificatePassword
+      - EncryptionKey
+      - SilentSsoJwtEncryptionKey
+    networks:
+      - rook_private_net
+      - traefik-public
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints: 
+          - node.role != manager	
+      labels:
+        - traefik.frontend.rule=Host:identity.${DOMAIN}
+        - traefik.enable=true
+        - traefik.port=80
+        - traefik.tags=traefik-public
+        - traefik.docker.network=traefik-public
+        - traefik.redirectorservice.frontend.entryPoints=http
+        - traefik.redirectorservice.frontend.redirect.entryPoint=https
+        - traefik.webservice.frontend.entryPoints=https 
+        - "prometheus.enable=true"
+        - "prometheus.port=81"
+        - "prometheus.path=/metrics"
+        - "prometheus.job=${ENVIRONMENT}_identityservice"
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 1024M
+        reservations:
+          cpus: '0.10'
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+
   scalingservice:
     image: rookframework/rook-platform-scaling:1.18.1.94
     volumes:
@@ -267,6 +591,53 @@ services:
         aliases:
           - organisationmongo
 
+  rolesmongo:
+    image: mongo
+    command: --smallfiles
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: rook
+      MONGO_INITDB_ROOT_PASSWORD: rook
+    networks:
+      rook_private_net:
+        aliases:
+          - rolesmongo
+
+  clientsmongo:
+    image: mongo
+    command: --smallfiles
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: rook
+      MONGO_INITDB_ROOT_PASSWORD: rook
+    networks:
+      rook_private_net:
+        aliases:
+          - clientsmongo
+
+  rolesmongo:
+    image: mongo
+    command: --smallfiles
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: rook
+      MONGO_INITDB_ROOT_PASSWORD: rook
+    networks:
+      rook_private_net:
+        aliases:
+          - rolesmongo
+
+  tasksmongo:
+    image: mongo
+    command: --smallfiles
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: rook
+      MONGO_INITDB_ROOT_PASSWORD: rook
+    networks:
+      rook_private_net:
+        aliases:
+          - tasksmongo
 
 networks:
   rook_private_net:
@@ -283,3 +654,14 @@ volumes:
       size: 2
       iops: 1000
       backing: relocatable
+
+
+secrets:
+  ${ENVIRONMENT}_signingcert:
+    external: true
+  CertificatePassword:
+    external: true
+  EncryptionKey:
+    external: true
+  SilentSsoJwtEncryptionKey:
+    external: true
